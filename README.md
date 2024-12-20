@@ -7,9 +7,9 @@ The ABR Transcoder is a Streamlit application that allows users to transcode aud
 ```
 abr-transcoder
 ├── src
-│   ├── app.py          # Main entry point for the Streamlit application
-│   ├── transcoder.py   # Contains the Transcoder class for handling transcoding
-│   └── utils.py        # Utility functions for input validation and other tasks
+│   ├── streamlit_app.py          # Main entry point for the Streamlit application
+│   └── flask_server.py   # Contains the Transcoder class for handling transcoding
+│
 ├── requirements.txt     # Lists the dependencies required for the project
 └── README.md            # Documentation for the project
 ```
@@ -28,7 +28,7 @@ abr-transcoder
 
 3. Run the Streamlit application:
    ```
-   streamlit run src/app.py
+   streamlit run src/streamlit_app.py
    ```
 
 ## Usage
