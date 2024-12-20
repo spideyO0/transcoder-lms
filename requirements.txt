@@ -3,3 +3,5 @@ ffmpeg-python
 numpy
 pydub
 requests
+flask
+flask_cors

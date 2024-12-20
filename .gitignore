@@ -1,4 +1,4 @@
-./env
-./src/__pycache__
-./src/output
-./src/uploads
+env
+src/__pycache__
+src/output
+src/uploads
