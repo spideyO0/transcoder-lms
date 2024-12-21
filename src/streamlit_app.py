@@ -12,6 +12,7 @@ import ffmpeg
 import logging
 import platform
 import requests
+import socket
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -106,17 +107,23 @@ def transcode_to_hls(input_source, base_name):
         st.error(f"An error occurred during transcoding: {e.stderr.decode() if e.stderr else str(e)}")
         return None
 
-# Function to get the base URL from Streamlit
-def get_base_url():
-    query_params = st.experimental_get_query_params()
-    if "base_url" in query_params:
-        return query_params["base_url"][0]
-    else:
-        return "http://localhost:8502"
+# Function to get the local IP address
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.254.254.254', 1))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = 'localhost'
+    finally:
+        s.close()
+    return ip
 
 # Generate stream URL for a file
 def generate_stream_url(file_path):
-    base_url = get_base_url()
+    local_ip = get_local_ip()
+    base_url = f"http://{local_ip}:8502"
     encoded_path = urllib.parse.quote(file_path)
     return f"{base_url}/stream/{encoded_path}"
 
