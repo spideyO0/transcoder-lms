@@ -120,10 +120,15 @@ def get_local_ip():
         s.close()
     return ip
 
+# Function to get the base URL
+def get_base_url():
+    protocol = "https" if st.secrets.get("base_url", "").startswith("https") else "http"
+    local_ip = get_local_ip()
+    return f"{protocol}://{local_ip}:8502"
+
 # Generate stream URL for a file
 def generate_stream_url(file_path):
-    local_ip = get_local_ip()
-    base_url = f"http://{local_ip}:8502"
+    base_url = get_base_url()
     encoded_path = urllib.parse.quote(file_path)
     return f"{base_url}/stream/{encoded_path}"
 
