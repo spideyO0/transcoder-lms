@@ -30,18 +30,26 @@ def transcode_to_hls(input_source, base_name):
     try:
         for quality, params in qualities.items():
             output_file = os.path.join(OUTPUT_FOLDER, f"{base_name}_{quality}.m3u8")
-            ffmpeg.input(input_source).output(
-                output_file,
-                vf=f"scale={params['resolution']}",
-                vcodec="libx264",
-                b=params["bitrate"],  # Corrected from b_v to b
-                preset="veryfast",
-                g=48,
-                hls_time=4,
-                hls_playlist_type="event",
-                hls_flags="delete_segments",
-                hls_segment_filename=os.path.join(OUTPUT_FOLDER, f"{base_name}_{quality}_%03d.ts")
-            ).run()
+            process = (
+                ffmpeg
+                .input(input_source)
+                .output(
+                    output_file,
+                    vf=f"scale={params['resolution']}",
+                    vcodec="libx264",
+                    b=params["bitrate"],
+                    preset="veryfast",
+                    g=48,
+                    hls_time=4,
+                    hls_playlist_type="event",
+                    hls_flags="delete_segments",
+                    hls_segment_filename=os.path.join(OUTPUT_FOLDER, f"{base_name}_{quality}_%03d.ts")
+                )
+                .run_async(pipe_stdout=True, pipe_stderr=True)
+            )
+            stdout, stderr = process.communicate()
+            if process.returncode != 0:
+                raise ffmpeg.Error('ffmpeg', stdout, stderr)
 
         # Create master playlist
         with open(master_playlist, 'w') as f:
