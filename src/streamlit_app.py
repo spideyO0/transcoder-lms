@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import subprocess
 from pathlib import Path
 from streamlit.components.v1 import html
 from flask import Flask, send_from_directory
@@ -17,8 +18,45 @@ OUTPUT_FOLDER = './output'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
+# Function to check if ffmpeg is installed
+def check_ffmpeg_installed():
+    try:
+        subprocess.run(["ffmpeg", "-version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+    except FileNotFoundError:
+        return False
+
+# Function to install ffmpeg
+def install_ffmpeg():
+    os_info = platform.system().lower()
+    if os_info == "linux":
+        # Download and install ffmpeg for Linux from GitHub
+        ffmpeg_url = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz"
+        subprocess.run(["curl", "-L", ffmpeg_url, "-o", "ffmpeg.tar.xz"], check=True)
+        subprocess.run(["tar", "-xvf", "ffmpeg.tar.xz"], check=True)
+        ffmpeg_dir = next(d for d in os.listdir() if d.startswith("ffmpeg-"))
+        os.environ["PATH"] += os.pathsep + os.path.abspath(os.path.join(ffmpeg_dir, "ffmpeg"))
+    elif os_info == "darwin":
+        # Download and install ffmpeg for macOS
+        subprocess.run(["brew", "install", "ffmpeg"], check=True)
+    elif os_info == "windows":
+        # Download and install ffmpeg for Windows
+        ffmpeg_url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+        subprocess.run(["curl", "-L", ffmpeg_url, "-o", "ffmpeg.zip"], check=True)
+        subprocess.run(["tar", "-xvf", "ffmpeg.zip"], check=True)
+        os.environ["PATH"] += os.pathsep + os.path.abspath("ffmpeg/bin")
+    else:
+        raise OSError("Unsupported operating system")
+
 # Function to transcode video to HLS with multiple qualities
 def transcode_to_hls(input_source, base_name):
+    if not check_ffmpeg_installed():
+        st.info("ffmpeg is not installed. Installing ffmpeg...")
+        install_ffmpeg()
+        st.success("ffmpeg installed successfully.")
+
     qualities = {
         "240p": {"resolution": "426x240", "bitrate": "300k"},
         "360p": {"resolution": "640x360", "bitrate": "500k"},
