@@ -37,7 +37,8 @@ def install_ffmpeg():
         subprocess.run(["curl", "-L", ffmpeg_url, "-o", "ffmpeg.tar.xz"], check=True)
         subprocess.run(["tar", "-xvf", "ffmpeg.tar.xz"], check=True)
         ffmpeg_dir = next(d for d in os.listdir() if d.startswith("ffmpeg-"))
-        os.environ["PATH"] += os.pathsep + os.path.abspath(os.path.join(ffmpeg_dir, "ffmpeg"))
+        ffmpeg_bin = os.path.join(ffmpeg_dir, "ffmpeg")
+        os.environ["PATH"] += os.pathsep + os.path.abspath(ffmpeg_bin)
     elif os_info == "darwin":
         # Download and install ffmpeg for macOS
         subprocess.run(["brew", "install", "ffmpeg"], check=True)
@@ -46,7 +47,8 @@ def install_ffmpeg():
         ffmpeg_url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
         subprocess.run(["curl", "-L", ffmpeg_url, "-o", "ffmpeg.zip"], check=True)
         subprocess.run(["tar", "-xvf", "ffmpeg.zip"], check=True)
-        os.environ["PATH"] += os.pathsep + os.path.abspath("ffmpeg/bin")
+        ffmpeg_bin = os.path.abspath("ffmpeg/bin")
+        os.environ["PATH"] += os.pathsep + ffmpeg_bin
     else:
         raise OSError("Unsupported operating system")
 
