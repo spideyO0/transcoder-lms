@@ -9,6 +9,7 @@ import urllib.parse
 from waitress import serve
 import ffmpeg
 import logging
+import platform
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -103,6 +104,11 @@ def main():
         flask_thread.daemon = True
         flask_thread.start()
         st.session_state['flask_thread'] = flask_thread
+
+    # Button to show the operating system
+    if st.button("Show Operating System"):
+        os_info = platform.system() + " " + platform.release()
+        st.info(f"Operating System: {os_info}")
 
     # Upload video file
     uploaded_file = st.file_uploader("Upload a video file", type=["mp4", "mkv", "avi"])
