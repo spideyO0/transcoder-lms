@@ -11,6 +11,7 @@ from waitress import serve
 import ffmpeg
 import logging
 import platform
+import requests
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -105,9 +106,18 @@ def transcode_to_hls(input_source, base_name):
         st.error(f"An error occurred during transcoding: {e.stderr.decode() if e.stderr else str(e)}")
         return None
 
+# Function to get the public IP address
+def get_public_ip():
+    try:
+        response = requests.get("https://api.ipify.org?format=json")
+        return response.json()["ip"]
+    except requests.RequestException:
+        return "localhost"
+
 # Generate stream URL for a file
 def generate_stream_url(file_path):
-    base_url = st.secrets.get("base_url", "http://localhost:8502")  # Default to localhost if base_url is missing
+    public_ip = get_public_ip()
+    base_url = f"http://{public_ip}:8502"
     encoded_path = urllib.parse.quote(file_path)
     return f"{base_url}/stream/{encoded_path}"
 
