@@ -1,9 +1,12 @@
 import streamlit as st
 import os
 import subprocess
-import urllib.parse
 from pathlib import Path
 from streamlit.components.v1 import html
+from flask import Flask, send_from_directory
+from flask_cors import CORS
+from threading import Thread
+import urllib.parse
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -56,11 +59,9 @@ def transcode_to_hls(input_source, base_name):
 
 # Generate stream URL for a file
 def generate_stream_url(file_path):
-    base_url = st.secrets.get("base_url", "http://localhost:8501")  # Default to localhost if base_url is missing
-    encoded_path = urllib.parse.quote(file_path, safe="")
+    base_url = st.secrets.get("base_url", "http://localhost:8502")  # Default to localhost if base_url is missing
+    encoded_path = urllib.parse.quote(file_path)
     return f"{base_url}/stream/{encoded_path}"
-
-
 
 # Serve HLS files
 @st.cache_data
@@ -68,9 +69,27 @@ def serve_file(file_path):
     with open(file_path, 'rb') as f:
         return f.read()
 
+# Flask app to serve HLS files
+flask_app = Flask(__name__)
+CORS(flask_app)  # Enable CORS for all routes
+
+@flask_app.route('/stream/<path:filename>')
+def stream(filename):
+    return send_from_directory(OUTPUT_FOLDER, filename)
+
+def run_flask():
+    flask_app.run(port=8502)
+
 # Streamlit app
 def main():
     st.title("Streamlit Media Server")
+
+    # Start Flask app in a separate thread
+    if 'flask_thread' not in st.session_state:
+        flask_thread = Thread(target=run_flask)
+        flask_thread.daemon = True
+        flask_thread.start()
+        st.session_state['flask_thread'] = flask_thread
 
     # Upload video file
     uploaded_file = st.file_uploader("Upload a video file", type=["mp4", "mkv", "avi"])
@@ -91,7 +110,7 @@ def main():
                 st.success("Transcoding completed!")
 
                 # Generate and display streamable URL
-                master_playlist_url = generate_stream_url(master_playlist)
+                master_playlist_url = generate_stream_url(f"{base_name}_master.m3u8")
                 st.write(f"Stream URL: [Stream Video]({master_playlist_url})")
                 st.markdown(f"Use this URL to play the video in any HLS-compatible player:\n\n`{master_playlist_url}`")
 
@@ -123,7 +142,7 @@ def main():
         selected_file = st.selectbox("Select a file to play", transcoded_files)
         if st.button("Play Selected File"):
             selected_file_path = os.path.join(OUTPUT_FOLDER, selected_file)
-            stream_url = generate_stream_url(selected_file_path)
+            stream_url = generate_stream_url(selected_file)
 
             st.write(f"Stream URL: [Stream Video]({stream_url})")
             st.markdown(f"Use this URL to play the video in any HLS-compatible player:\n\n`{stream_url}`")
