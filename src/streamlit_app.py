@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import subprocess
 from pathlib import Path
 from streamlit.components.v1 import html
 from flask import Flask, send_from_directory
@@ -8,6 +7,7 @@ from flask_cors import CORS
 from threading import Thread
 import urllib.parse
 from waitress import serve
+import ffmpeg
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -25,38 +25,35 @@ def transcode_to_hls(input_source, base_name):
         "1080p": {"resolution": "1920x1080", "bitrate": "3000k"},
     }
     master_playlist = os.path.join(OUTPUT_FOLDER, f"{base_name}_master.m3u8")
-    ffmpeg_commands = []
 
-    for quality, params in qualities.items():
-        output_file = os.path.join(OUTPUT_FOLDER, f"{base_name}_{quality}.m3u8")
-        ffmpeg_command = [
-            "ffmpeg",
-            "-i", input_source,
-            "-vf", f"scale={params['resolution']}",
-            "-c:v", "libx264",
-            "-b:v", params["bitrate"],
-            "-preset", "veryfast",
-            "-g", "48",
-            "-hls_time", "4",
-            "-hls_playlist_type", "event",
-            "-hls_flags", "delete_segments",
-            "-hls_segment_filename", os.path.join(OUTPUT_FOLDER, f"{base_name}_{quality}_%03d.ts"),
-            output_file,
-        ]
-        ffmpeg_commands.append(ffmpeg_command)
-
-    # Run ffmpeg commands sequentially
-    for cmd in ffmpeg_commands:
-        subprocess.run(cmd, check=True)
-
-    # Create master playlist
-    with open(master_playlist, 'w') as f:
-        f.write("#EXTM3U\n")
+    try:
         for quality, params in qualities.items():
-            f.write(f"#EXT-X-STREAM-INF:BANDWIDTH={params['bitrate']},RESOLUTION={params['resolution']}\n")
-            f.write(f"{base_name}_{quality}.m3u8\n")
+            output_file = os.path.join(OUTPUT_FOLDER, f"{base_name}_{quality}.m3u8")
+            ffmpeg.input(input_source).output(
+                output_file,
+                vf=f"scale={params['resolution']}",
+                vcodec="libx264",
+                b=params["bitrate"],  # Corrected from b_v to b
+                preset="veryfast",
+                g=48,
+                hls_time=4,
+                hls_playlist_type="event",
+                hls_flags="delete_segments",
+                hls_segment_filename=os.path.join(OUTPUT_FOLDER, f"{base_name}_{quality}_%03d.ts")
+            ).run()
 
-    return master_playlist
+        # Create master playlist
+        with open(master_playlist, 'w') as f:
+            f.write("#EXTM3U\n")
+            for quality, params in qualities.items():
+                f.write(f"#EXT-X-STREAM-INF:BANDWIDTH={params['bitrate']},RESOLUTION={params['resolution']}\n")
+                f.write(f"{base_name}_{quality}.m3u8\n")
+
+        return master_playlist
+
+    except ffmpeg.Error as e:
+        st.error(f"An error occurred during transcoding: {e.stderr.decode() if e.stderr else str(e)}")
+        return None
 
 # Generate stream URL for a file
 def generate_stream_url(file_path):
@@ -108,33 +105,34 @@ def main():
             try:
                 st.info("Transcoding in progress...")
                 master_playlist = transcode_to_hls(input_source, base_name)
-                st.success("Transcoding completed!")
+                if master_playlist:
+                    st.success("Transcoding completed!")
 
-                # Generate and display streamable URL
-                master_playlist_url = generate_stream_url(f"{base_name}_master.m3u8")
-                st.write(f"Stream URL: [Stream Video]({master_playlist_url})")
-                st.markdown(f"Use this URL to play the video in any HLS-compatible player:\n\n`{master_playlist_url}`")
+                    # Generate and display streamable URL
+                    master_playlist_url = generate_stream_url(f"{base_name}_master.m3u8")
+                    st.write(f"Stream URL: [Stream Video]({master_playlist_url})")
+                    st.markdown(f"Use this URL to play the video in any HLS-compatible player:\n\n`{master_playlist_url}`")
 
-                # Embed Video.js player
-                my_html = f"""
-                    <link href="https://vjs.zencdn.net/7.11.4/video-js.css" rel="stylesheet" />
-                    <script src="https://vjs.zencdn.net/7.11.4/video.min.js"></script>
-                    <script src="https://cdn.jsdelivr.net/npm/videojs-contrib-quality-levels@2.0.9/dist/videojs-contrib-quality-levels.min.js"></script>
-                    <script src="https://cdn.jsdelivr.net/npm/videojs-http-source-selector@1.1.6/dist/videojs-http-source-selector.min.js"></script>
-                    <video-js id="videoPlayer" class="vjs-default-skin" controls preload="auto" width="640" height="360">
-                        <source src="{master_playlist_url}" type="application/x-mpegURL">
-                    </video-js>
-                    <script>
-                        var player = videojs('videoPlayer');
-                        player.qualityLevels();
-                        player.httpSourceSelector();
-                        player.play();
-                    </script>
-                """
-                html(my_html)
-
-            except subprocess.CalledProcessError as e:
-                st.error(f"Transcoding failed: {e}")
+                    # Embed Video.js player
+                    my_html = f"""
+                        <link href="https://vjs.zencdn.net/7.11.4/video-js.css" rel="stylesheet" />
+                        <script src="https://vjs.zencdn.net/7.11.4/video.min.js"></script>
+                        <script src="https://cdn.jsdelivr.net/npm/videojs-contrib-quality-levels@2.0.9/dist/videojs-contrib-quality-levels.min.js"></script>
+                        <script src="https://cdn.jsdelivr.net/npm/videojs-http-source-selector@1.1.6/dist/videojs-http-source-selector.min.js"></script>
+                        <video-js id="videoPlayer" class="vjs-default-skin" controls preload="auto" width="640" height="360">
+                            <source src="{master_playlist_url}" type="application/x-mpegURL">
+                        </video-js>
+                        <script>
+                            var player = videojs('videoPlayer');
+                            player.qualityLevels();
+                            player.httpSourceSelector();
+                            player.play();
+                        </script>
+                    """
+                    html(my_html)
+            except ffmpeg.Error as e:
+                error_message = e.stderr.decode() if e.stderr else str(e)
+                st.error(f"Transcoding failed: {error_message}")
 
     # Display list of previously transcoded files
     st.header("Previously Transcoded Files")
