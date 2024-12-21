@@ -7,6 +7,7 @@ from flask import Flask, send_from_directory
 from flask_cors import CORS
 from threading import Thread
 import urllib.parse
+from waitress import serve
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -78,7 +79,7 @@ def stream(filename):
     return send_from_directory(OUTPUT_FOLDER, filename)
 
 def run_flask():
-    flask_app.run(port=8502)
+    serve(flask_app, host='0.0.0.0', port=8502)
 
 # Streamlit app
 def main():
