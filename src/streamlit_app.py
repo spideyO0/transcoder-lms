@@ -106,18 +106,17 @@ def transcode_to_hls(input_source, base_name):
         st.error(f"An error occurred during transcoding: {e.stderr.decode() if e.stderr else str(e)}")
         return None
 
-# Function to get the public IP address
-def get_public_ip():
-    try:
-        response = requests.get("https://api.ipify.org?format=json")
-        return response.json()["ip"]
-    except requests.RequestException:
-        return "localhost"
+# Function to get the base URL from Streamlit
+def get_base_url():
+    query_params = st.experimental_get_query_params()
+    if "base_url" in query_params:
+        return query_params["base_url"][0]
+    else:
+        return "http://localhost:8502"
 
 # Generate stream URL for a file
 def generate_stream_url(file_path):
-    public_ip = get_public_ip()
-    base_url = f"https://{public_ip}:8502"
+    base_url = get_base_url()
     encoded_path = urllib.parse.quote(file_path)
     return f"{base_url}/stream/{encoded_path}"
 
