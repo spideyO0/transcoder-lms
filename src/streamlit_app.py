@@ -8,6 +8,7 @@ from threading import Thread
 import urllib.parse
 from waitress import serve
 import ffmpeg
+import logging
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -76,7 +77,13 @@ def stream(filename):
     return send_from_directory(OUTPUT_FOLDER, filename)
 
 def run_flask():
-    serve(flask_app, host='0.0.0.0', port=8502)
+    try:
+        serve(flask_app, host='0.0.0.0', port=8502)
+    except OSError as e:
+        if "Address already in use" in str(e):
+            logging.info("Port 8502 is already in use. Using the existing server.")
+        else:
+            raise
 
 # Streamlit app
 def main():
