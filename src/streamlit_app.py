@@ -117,7 +117,7 @@ def get_public_ip():
 # Generate stream URL for a file
 def generate_stream_url(file_path):
     public_ip = get_public_ip()
-    base_url = f"http://{public_ip}:8502"
+    base_url = f"https://{public_ip}:8502"
     encoded_path = urllib.parse.quote(file_path)
     return f"{base_url}/stream/{encoded_path}"
 
