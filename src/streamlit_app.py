@@ -38,7 +38,7 @@ def install_ffmpeg():
         subprocess.run(["tar", "-xvf", "ffmpeg.tar.xz"], check=True)
         ffmpeg_dir = next(d for d in os.listdir() if d.startswith("ffmpeg-"))
         ffmpeg_bin = os.path.join(ffmpeg_dir, "ffmpeg")
-        os.environ["PATH"] += os.pathsep + os.path.abspath(ffmpeg_bin)
+        os.environ["PATH"] += os.pathsep + os.path.abspath(ffmpeg_dir)
     elif os_info == "darwin":
         # Download and install ffmpeg for macOS
         subprocess.run(["brew", "install", "ffmpeg"], check=True)
