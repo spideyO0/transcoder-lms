@@ -6,3 +6,6 @@ requests
 flask
 flask_cors
 waitress
+setuptools
+wheel
+-e .

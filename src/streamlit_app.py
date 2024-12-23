@@ -3,8 +3,9 @@ import os
 import subprocess
 from pathlib import Path
 from streamlit.components.v1 import html
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request, jsonify, Response
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 from threading import Thread
 import urllib.parse
 from waitress import serve
@@ -12,7 +13,14 @@ import ffmpeg
 import logging
 import platform
 import requests
-import socket
+import tornado.ioloop
+import tornado.web
+import tornado.httpclient
+import tornado.httputil
+from streamlit.web.server.server import Server
+from streamlit.runtime import get_instance
+from streamlit.runtime.scriptrunner import get_script_run_ctx
+
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -53,6 +61,26 @@ def install_ffmpeg():
         os.environ["PATH"] += os.pathsep + ffmpeg_bin
     else:
         raise OSError("Unsupported operating system")
+
+# Function to check if the Flask server is running
+def check_flask_server():
+    try:
+        response = requests.get(get_flask_url())
+        return response.status_code == 200
+    except requests.ConnectionError:
+        return False
+
+# Function to start the Flask server if not running
+def ensure_flask_server_running():
+    if not check_flask_server():
+        st.info("Starting Flask server...")
+        flask_thread = Thread(target=run_flask)
+        flask_thread.daemon = True
+        flask_thread.start()
+        st.session_state['flask_thread'] = flask_thread
+        st.success("Flask server started successfully.")
+    else:
+        st.success("Flask server is already running.")
 
 # Function to transcode video to HLS with multiple qualities
 def transcode_to_hls(input_source, base_name):
@@ -107,95 +135,166 @@ def transcode_to_hls(input_source, base_name):
         st.error(f"An error occurred during transcoding: {e.stderr.decode() if e.stderr else str(e)}")
         return None
 
-# Function to get the local IP address
-def get_local_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        # doesn't even have to be reachable
-        s.connect(('10.254.254.254', 1))
-        ip = s.getsockname()[0]
-    except Exception:
-        ip = 'localhost'
-    finally:
-        s.close()
-    return ip
-
-# Function to get the base URL
+# Function to get the base URL from Streamlit secrets
 def get_base_url():
-    protocol = "https" if st.secrets.get("base_url", "").startswith("https") else "http"
-    local_ip = get_local_ip()
-    return f"{protocol}://{local_ip}:8502"
+    return st.secrets.get("base_url", "http://localhost:8501")
+
+# Function to get the Flask server URL from Streamlit secrets
+def get_flask_url():
+    return st.secrets.get("flask_url", "http://localhost:8502")
 
 # Generate stream URL for a file
 def generate_stream_url(file_path):
     base_url = get_base_url()
     encoded_path = urllib.parse.quote(file_path)
-    return f"{base_url}/stream/{encoded_path}"
+    return f"{base_url}/proxy/stream/{encoded_path}"
 
-# Serve HLS files
-@st.cache_data
-def serve_file(file_path):
-    with open(file_path, 'rb') as f:
-        return f.read()
-
-# Flask app to serve HLS files
+# Serve HLS files using Flask app 
 flask_app = Flask(__name__)
-CORS(flask_app)  # Enable CORS for all routes
+flask_app.wsgi_app = ProxyFix(flask_app.wsgi_app)
+CORS(flask_app)
 
 @flask_app.route('/stream/<path:filename>')
 def stream(filename):
-    return send_from_directory(OUTPUT_FOLDER, filename)
+    logging.info(f"Serving file: {filename}")
+    try:
+        return send_from_directory(OUTPUT_FOLDER, filename)
+    except Exception as e:
+        logging.error(f"Error serving file {filename}: {str(e)}")
+        return Response("File not found.", status=404)
+
+@flask_app.route('/transcode', methods=['POST'])
+def transcode():
+    file = request.files['file']
+    input_source = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(input_source)
+    
+    base_name = os.path.splitext(file.filename)[0]
+    master_playlist = transcode_to_hls(input_source, base_name)
+    
+    if master_playlist:
+        return jsonify({"url": generate_stream_url(f"{base_name}_master.m3u8")})
+    else:
+        return jsonify({"error": "Transcoding failed"}), 500
+
+@flask_app.route('/proxy/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
+def proxy(path):
+    flask_url = get_flask_url()
+    target_url = f"{flask_url}/{path}"
+    
+    if request.method == 'GET':
+        response = requests.get(target_url, params=request.args)
+    elif request.method == 'POST':
+        response = requests.post(target_url, data=request.form, files=request.files)
+    elif request.method == 'PUT':
+        response = requests.put(target_url, data=request.form)
+    elif request.method == 'DELETE':
+        response = requests.delete(target_url)
+    else:
+        return Response("Method not allowed", status=405)
+    
+    return Response(response.content, status=response.status_code, headers=dict(response.headers))
+
+@flask_app.route('/check_flask_access')
+def check_flask_access():
+    return send_from_directory('.', 'check_flask_access.html')
 
 def run_flask():
     try:
-        serve(flask_app, host='0.0.0.0', port=8502)
+        serve(flask_app, host='127.0.0.1', port=8502)
     except OSError as e:
         if "Address already in use" in str(e):
             logging.info("Port 8502 is already in use. Using the existing server.")
         else:
             raise
 
-# Streamlit app
+# Function to check if the stream URL is accessible
+def check_stream_url(stream_url):
+    try:
+        response = requests.get(stream_url, stream=True)
+        if response.status_code == 200:
+            st.success("Stream URL is accessible.")
+        else:
+            st.error(f"Stream URL is not accessible. Status code: {response.status_code}")
+    except requests.ConnectionError:
+        st.error("Failed to connect to the stream URL. Please check the Flask server and proxy configuration.")
+
+# Tornado reverse proxy handler is now handled in server.py, so remove it from here
+
+def configure_tornado():
+    runtime = get_instance()
+    app = runtime._get_tornado_app()
+    if app:
+        # No need to add handlers here as it's already done in server.py
+        pass
+    else:
+        raise RuntimeError("Could not get the Streamlit server instance.")
+
 def main():
     st.title("Streamlit Media Server")
 
     # Start Flask app in a separate thread
     if 'flask_thread' not in st.session_state:
-        flask_thread = Thread(target=run_flask)
-        flask_thread.daemon = True
-        flask_thread.start()
-        st.session_state['flask_thread'] = flask_thread
+        ensure_flask_server_running()
 
-    # Button to show the operating system
-    if st.button("Show Operating System"):
-        os_info = platform.system() + " " + platform.release()
-        st.info(f"Operating System: {os_info}")
+    # No need to configure Tornado reverse proxy here
 
-    # Upload video file
+    # Reverse proxy for Flask server requests (for streaming)
+    
+    query_params = st.query_params
+    
+    if "stream" in query_params:
+        stream_path = query_params["stream"][0]
+        
+        # Forward request to Flask server and get response.
+        
+        logging.info(f"Proxying request to Flask server for stream: {stream_path}")
+        
+        flask_url = get_flask_url()
+        response = requests.get(f"{flask_url}/stream/{stream_path}", stream=True)
+        
+        if response.status_code == 200:
+            st.write("Streaming video...")
+            st.video(response.url)
+        else:
+            st.error(f"Failed to fetch stream: {response.status_code} - {response.text}")
+            logging.error(f"Error fetching stream: {response.status_code} - {response.text}")
+
+    # Upload video file 
     uploaded_file = st.file_uploader("Upload a video file", type=["mp4", "mkv", "avi"])
     
     if uploaded_file:
         input_source = os.path.join(UPLOAD_FOLDER, uploaded_file.name)
+        
         with open(input_source, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
         base_name = os.path.splitext(uploaded_file.name)[0]
+        
         st.info(f"Uploaded file: {uploaded_file.name}")
 
-        # Transcode video
+        # Transcode video 
         if st.button("Start Transcoding"):
             try:
                 st.info("Transcoding in progress...")
-                master_playlist = transcode_to_hls(input_source, base_name)
-                if master_playlist:
+                
+                flask_url = get_flask_url()
+                response = requests.post(f"{flask_url}/transcode", files={"file": open(input_source, "rb")})
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    master_playlist_url = data["url"]
+                    
                     st.success("Transcoding completed!")
 
-                    # Generate and display streamable URL
-                    master_playlist_url = generate_stream_url(f"{base_name}_master.m3u8")
+                    # Generate and display streamable URL 
                     st.write(f"Stream URL: [Stream Video]({master_playlist_url})")
                     st.markdown(f"Use this URL to play the video in any HLS-compatible player:\n\n`{master_playlist_url}`")
 
-                    # Embed Video.js player
+                    # Check if the stream URL is accessible
+                    check_stream_url(master_playlist_url)
+
+                    # Embed Video.js player 
                     my_html = f"""
                         <link href="https://vjs.zencdn.net/7.11.4/video-js.css" rel="stylesheet" />
                         <script src="https://vjs.zencdn.net/7.11.4/video.min.js"></script>
@@ -212,21 +311,28 @@ def main():
                         </script>
                     """
                     html(my_html)
-            except ffmpeg.Error as e:
-                error_message = e.stderr.decode() if e.stderr else str(e)
-                st.error(f"Transcoding failed: {error_message}")
+                else:
+                    st.error("Transcoding failed.")
+            except Exception as e:
+                st.error(f"Transcoding failed: {str(e)}")
 
-    # Display list of previously transcoded files
+    # Display list of previously transcoded files 
     st.header("Previously Transcoded Files")
+    
     transcoded_files = [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith("_master.m3u8")]
+    
     if transcoded_files:
         selected_file = st.selectbox("Select a file to play", transcoded_files)
+        
         if st.button("Play Selected File"):
             selected_file_path = os.path.join(OUTPUT_FOLDER, selected_file)
             stream_url = generate_stream_url(selected_file)
 
             st.write(f"Stream URL: [Stream Video]({stream_url})")
             st.markdown(f"Use this URL to play the video in any HLS-compatible player:\n\n`{stream_url}`")
+
+            # Check if the stream URL is accessible
+            check_stream_url(stream_url)
 
             my_html = f"""
                 <link href="https://vjs.zencdn.net/7.11.4/video-js.css" rel="stylesheet" />
@@ -244,6 +350,7 @@ def main():
                 </script>
             """
             html(my_html)
+    
     else:
         st.info("No transcoded files available.")
 
