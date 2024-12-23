@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import subprocess
+import sys  # Add this import statement
 from pathlib import Path
 from streamlit.components.v1 import html
 from flask import Flask, send_from_directory, request, jsonify, Response
@@ -23,11 +24,20 @@ from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 # Run the patch script to modify Streamlit server.py
 def run_patch_script():
-    try:
-        subprocess.check_call([sys.executable, 'patch_streamlit.py'])
-    except subprocess.CalledProcessError as e:
-        st.error(f"Error occurred while running the patch script: {e}")
-        sys.exit(1)
+    patch_script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'patch_streamlit.py')
+    marker_file = os.path.join(os.path.dirname(__file__), 'patch_applied.marker')
+    if not os.path.exists(marker_file):
+        try:
+            subprocess.check_call([sys.executable, patch_script_path])
+            with open(marker_file, 'w') as f:
+                f.write('Patch applied')
+            st.info("Patch applied successfully. Killing the Streamlit server.")
+            os._exit(0)
+        except subprocess.CalledProcessError as e:
+            st.error(f"Error occurred while running the patch script: {e}")
+            sys.exit(1)
+    else:
+        st.info("Patch already applied. Skipping patching process.")
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
