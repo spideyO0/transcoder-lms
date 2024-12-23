@@ -21,6 +21,13 @@ from streamlit.web.server.server import Server
 from streamlit.runtime import get_instance
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 
+# Run the patch script to modify Streamlit server.py
+def run_patch_script():
+    try:
+        subprocess.check_call([sys.executable, 'patch_streamlit.py'])
+    except subprocess.CalledProcessError as e:
+        st.error(f"Error occurred while running the patch script: {e}")
+        sys.exit(1)
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -231,6 +238,9 @@ def configure_tornado():
         raise RuntimeError("Could not get the Streamlit server instance.")
 
 def main():
+    # Run the patch script to modify Streamlit server.py
+    run_patch_script()
+
     st.title("Streamlit Media Server")
 
     # Start Flask app in a separate thread
@@ -356,3 +366,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
