@@ -8,13 +8,6 @@ class CustomInstallCommand(install):
     """Customized setuptools install command - installs dependencies and patches Streamlit."""
     
     def run(self):
-        # Install dependencies from requirements.txt
-        try:
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'])
-        except subprocess.CalledProcessError as e:
-            print(f"Error occurred while installing dependencies: {e}")
-            sys.exit(1)
-        
         # Proceed with the standard installation process
         install.run(self)
         
@@ -24,38 +17,11 @@ class CustomInstallCommand(install):
         except subprocess.CalledProcessError as e:
             print(f"Error occurred while running the patch script: {e}")
             sys.exit(1)
-class CustomInstallCommand(install):
-    """Customized setuptools install command - installs dependencies and patches Streamlit."""
-    
-    def run(self):
-        # Install dependencies from requirements.txt
-        try:
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'])
-        except subprocess.CalledProcessError as e:
-            print(f"Error occurred while installing dependencies: {e}")
-            sys.exit(1)
-        
-        # Proceed with the standard installation process
-        install.run(self)
-        
-        # Run the patch script to modify Streamlit after installation
-        try:
-            subprocess.check_call([sys.executable, 'patch_streamlit.py'])
-        except subprocess.CalledProcessError as e:
-            print(f"Error occurred while running the patch script: {e}")
-            sys.exit(1)
-            
+
 class CustomDevelopCommand(develop):
     """Customized setuptools install command - installs dependencies and patches Streamlit."""
     
     def run(self):
-        # Install dependencies from requirements.txt
-        # try:
-        #     subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'])
-        # except subprocess.CalledProcessError as e:
-        #     print(f"Error occurred while installing dependencies: {e}")
-        #     sys.exit(1)
-        
         # Proceed with the standard installation process
         
         # Run the patch script to modify Streamlit after installation
