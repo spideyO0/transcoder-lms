@@ -1,7 +1,7 @@
 # Build dependencies
 setuptools
 wheel
-streamlit
+-e ./streamlit
 
 # Runtime dependencies
 ffmpeg-python
@@ -11,4 +11,3 @@ requests
 flask
 flask_cors
 waitress
--e .

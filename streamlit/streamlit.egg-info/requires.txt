@@ -1,0 +1,27 @@
+altair<6,>=4.0
+blinker<2,>=1.0.0
+cachetools<6,>=4.0
+click<9,>=7.0
+numpy<3,>=1.23
+packaging<25,>=20
+pandas<3,>=1.4.0
+pillow<12,>=7.1.0
+protobuf<6,>=3.20
+pyarrow>=7.0
+requests<3,>=2.27
+rich<14,>=10.14.0
+tenacity<10,>=8.1.0
+toml<2,>=0.10.1
+typing-extensions<5,>=4.3.0
+gitpython!=3.1.19,<4,>=3.0.7
+pydeck<1,>=0.8.0b4
+tornado<7,>=6.0.3
+
+[:platform_system != "Darwin"]
+watchdog<7,>=2.1.5
+
+[snowflake]
+
+[snowflake:python_version < "3.12"]
+snowflake-snowpark-python[modin]>=1.17.0
+snowflake-connector-python>=2.8.0
