@@ -8,4 +8,5 @@ flask_cors
 waitress
 setuptools
 wheel
+pandas
 -e .
