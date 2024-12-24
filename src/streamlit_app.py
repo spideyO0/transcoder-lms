@@ -22,25 +22,6 @@ from streamlit.web.server.server import Server
 from streamlit.runtime import get_instance
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 
-# Run the patch script to modify Streamlit server.py
-# def run_patch_script():
-#     patch_script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'patch_streamlit.py')
-#     marker_file = os.path.join(os.path.dirname(__file__), 'patch_applied.marker')
-#     if not os.path.exists(marker_file):
-#         try:
-#             subprocess.check_call([sys.executable, patch_script_path])
-#             with open(marker_file, 'w') as f:
-#                 f.write('Patch applied')
-#             st.info("Patch applied successfully. Killing the Streamlit server.")
-#             os._exit(0)
-#         except subprocess.CalledProcessError as e:
-#             st.error(f"Error occurred while running the patch script: {e}")
-#             sys.exit(1)
-#         except Exception as e:
-#             st.error(f"Unexpected error: {e}")
-#             sys.exit(1)
-#     else:
-#         st.info("Patch already applied. Skipping patching process.")
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -296,10 +277,17 @@ def configure_tornado():
         st.error(f"Unexpected error during Tornado configuration: {e}")
         sys.exit(1)
 
+def list_directory_contents():
+    try:
+        uploads_contents = subprocess.check_output(["ls", "-la", UPLOAD_FOLDER]).decode("utf-8")
+        output_contents = subprocess.check_output(["ls", "-la", OUTPUT_FOLDER]).decode("utf-8")
+        return uploads_contents, output_contents
+    except subprocess.CalledProcessError as e:
+        st.error(f"Error listing directory contents: {e}")
+        return "", ""
+
 def main():
     try:
-        # Run the patch script to modify Streamlit server.py
-        # run_patch_script()
 
         st.title("Streamlit Media Server")
 
@@ -429,6 +417,13 @@ def main():
                 st.info("No transcoded files available.")
         except Exception as e:
             st.error(f"Unexpected error displaying transcoded files: {e}")
+
+        if st.button("List Directory Contents"):
+            uploads_contents, output_contents = list_directory_contents()
+            st.subheader("Uploads Directory Contents")
+            st.text(uploads_contents)
+            st.subheader("Output Directory Contents")
+            st.text(output_contents)
 
     except Exception as e:
         st.error(f"Unexpected error in main: {e}")
