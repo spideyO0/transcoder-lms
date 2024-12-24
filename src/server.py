@@ -129,6 +129,10 @@ def start_listening(app: tornado.web.Application) -> None:
 
     if server_address_is_unix_socket():
         start_listening_unix_socket(http_server)
+        
+        app.add_handlers(r".*", [
+        (r"/proxy/.*", ReverseProxyHandler),
+        ])
     else:
         start_listening_tcp_socket(http_server)
 
@@ -349,6 +353,7 @@ class Server:
                 ComponentRequestHandler,
                 {"registry": self._runtime.component_registry},
             ),
+            (r"/proxy/.*", ReverseProxyHandler),
         ]
 
         if config.get_option("server.scriptHealthCheckEnabled"):

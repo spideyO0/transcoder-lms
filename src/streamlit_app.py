@@ -210,6 +210,7 @@ def transcode():
 @flask_app.route('/proxy/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy(path):
     try:
+        print(f"Proxying request to: {path}")
         flask_url = get_flask_url()
         target_url = f"{flask_url}/{path}"
         
