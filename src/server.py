@@ -132,7 +132,7 @@ def start_listening(app: tornado.web.Application) -> None:
     else:
         start_listening_tcp_socket(http_server)
 
-    # Add port forwarding to the proxy route
+    # Add port forwarding to the proxy route first
     app.add_handlers(r".*", [
         (r"/proxy/.*", ReverseProxyHandler),
     ])
@@ -448,11 +448,17 @@ def _set_tornado_log_levels() -> None:
 
 class ReverseProxyHandler(tornado.web.RequestHandler):
     async def prepare(self):
-        # Always use HTTP for the Flask server
         self.flask_url = "http://localhost:8502"
-        self.target_url = f"{self.flask_url}{self.request.uri[len('/proxy'):]}"  # Corrected slicing
+        self.target_url = f"{self.flask_url}{self.request.uri[len('/proxy'):]}"
         self.http_client = tornado.httpclient.AsyncHTTPClient()
-        _LOGGER.debug(f"Proxying request to: {self.target_url}")
+        logging.debug(f"Proxying request to: {self.target_url}")
+
+        # Log request headers
+        logging.debug(f"Request headers: {self.request.headers}")
+
+        # Optionally modify headers to bypass caching
+        self.request.headers.pop("If-None-Match", None)
+        self.request.headers.pop("If-Modified-Since", None)
 
     async def get(self):
         try:
@@ -460,11 +466,10 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
             self.set_status(response.code)
             for header, value in response.headers.get_all():
                 self.set_header(header, value)
-            # Ensure the response is secure
             self.set_header("Content-Security-Policy", "upgrade-insecure-requests")
             self.write(response.body)
         except tornado.httpclient.HTTPClientError as e:
-            _LOGGER.error(f"HTTPClientError: {e.code} - {e.message}")
+            logging.error(f"HTTPClientError: {e.code} - {e.message}")
             if e.code == 304:
                 self.set_status(304)
                 self.finish()
@@ -472,11 +477,11 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
                 self.set_status(e.code)
                 self.write(f"Error: {e.message}")
         except ConnectionRefusedError:
-            _LOGGER.error("ConnectionRefusedError: Connection refused")
+            logging.error("ConnectionRefusedError: Connection refused")
             self.set_status(502)
             self.write("Error: Connection refused")
         except Exception as e:
-            _LOGGER.error(f"Unexpected error: {str(e)}")
+            logging.error(f"Unexpected error: {str(e)}")
             self.set_status(500)
             self.write(f"Unexpected error: {str(e)}")
 
@@ -487,19 +492,18 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
             self.set_status(response.code)
             for header, value in response.headers.get_all():
                 self.set_header(header, value)
-            # Ensure the response is secure
             self.set_header("Content-Security-Policy", "upgrade-insecure-requests")
             self.write(response.body)
         except tornado.httpclient.HTTPClientError as e:
-            _LOGGER.error(f"HTTPClientError: {e.code} - {e.message}")
+            logging.error(f"HTTPClientError: {e.code} - {e.message}")
             self.set_status(e.code)
             self.write(f"Error: {e.message}")
         except ConnectionRefusedError:
-            _LOGGER.error("ConnectionRefusedError: Connection refused")
+            logging.error("ConnectionRefusedError: Connection refused")
             self.set_status(502)
             self.write("Error: Connection refused")
         except Exception as e:
-            _LOGGER.error(f"Unexpected error: {str(e)}")
+            logging.error(f"Unexpected error: {str(e)}")
             self.set_status(500)
             self.write(f"Unexpected error: {str(e)}")
 
@@ -510,19 +514,18 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
             self.set_status(response.code)
             for header, value in response.headers.get_all():
                 self.set_header(header, value)
-            # Ensure the response is secure
             self.set_header("Content-Security-Policy", "upgrade-insecure-requests")
             self.write(response.body)
         except tornado.httpclient.HTTPClientError as e:
-            _LOGGER.error(f"HTTPClientError: {e.code} - {e.message}")
+            logging.error(f"HTTPClientError: {e.code} - {e.message}")
             self.set_status(e.code)
             self.write(f"Error: {e.message}")
         except ConnectionRefusedError:
-            _LOGGER.error("ConnectionRefusedError: Connection refused")
+            logging.error("ConnectionRefusedError: Connection refused")
             self.set_status(502)
             self.write("Error: Connection refused")
         except Exception as e:
-            _LOGGER.error(f"Unexpected error: {str(e)}")
+            logging.error(f"Unexpected error: {str(e)}")
             self.set_status(500)
             self.write(f"Unexpected error: {str(e)}")
 
@@ -532,18 +535,17 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
             self.set_status(response.code)
             for header, value in response.headers.get_all():
                 self.set_header(header, value)
-            # Ensure the response is secure
             self.set_header("Content-Security-Policy", "upgrade-insecure-requests")
             self.write(response.body)
         except tornado.httpclient.HTTPClientError as e:
-            _LOGGER.error(f"HTTPClientError: {e.code} - {e.message}")
+            logging.error(f"HTTPClientError: {e.code} - {e.message}")
             self.set_status(e.code)
             self.write(f"Error: {e.message}")
         except ConnectionRefusedError:
-            _LOGGER.error("ConnectionRefusedError: Connection refused")
+            logging.error("ConnectionRefusedError: Connection refused")
             self.set_status(502)
             self.write("Error: Connection refused")
         except Exception as e:
-            _LOGGER.error(f"Unexpected error: {str(e)}")
+            logging.error(f"Unexpected error: {str(e)}")
             self.set_status(500)
             self.write(f"Unexpected error: {str(e)}")
