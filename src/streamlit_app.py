@@ -277,15 +277,6 @@ def configure_tornado():
         st.error(f"Unexpected error during Tornado configuration: {e}")
         sys.exit(1)
 
-def list_directory_contents():
-    try:
-        uploads_contents = subprocess.check_output(["ls", "-la", UPLOAD_FOLDER]).decode("utf-8")
-        output_contents = subprocess.check_output(["ls", "-la", OUTPUT_FOLDER]).decode("utf-8")
-        return uploads_contents, output_contents
-    except subprocess.CalledProcessError as e:
-        st.error(f"Error listing directory contents: {e}")
-        return "", ""
-
 def main():
     try:
 
@@ -417,13 +408,6 @@ def main():
                 st.info("No transcoded files available.")
         except Exception as e:
             st.error(f"Unexpected error displaying transcoded files: {e}")
-
-        if st.button("List Directory Contents"):
-            uploads_contents, output_contents = list_directory_contents()
-            st.subheader("Uploads Directory Contents")
-            st.text(uploads_contents)
-            st.subheader("Output Directory Contents")
-            st.text(output_contents)
 
     except Exception as e:
         st.error(f"Unexpected error in main: {e}")

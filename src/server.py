@@ -448,6 +448,7 @@ def _set_tornado_log_levels() -> None:
 
 class ReverseProxyHandler(tornado.web.RequestHandler):
     async def prepare(self):
+        # Always use HTTP for the Flask server
         self.flask_url = "http://localhost:8502"
         self.target_url = f"{self.flask_url}{self.request.uri[len('/proxy'):]}"  # Corrected slicing
         self.http_client = tornado.httpclient.AsyncHTTPClient()
@@ -458,33 +459,78 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
             self.set_status(response.code)
             for header, value in response.headers.get_all():
                 self.set_header(header, value)
+            # Ensure the response is secure
+            self.set_header("Content-Security-Policy", "upgrade-insecure-requests")
             self.write(response.body)
         except tornado.httpclient.HTTPClientError as e:
             if e.code == 304:
                 self.set_status(304)
                 self.finish()
             else:
-                raise
+                self.set_status(e.code)
+                self.write(f"Error: {e.message}")
+        except ConnectionRefusedError:
+            self.set_status(502)
+            self.write("Error: Connection refused")
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Unexpected error: {str(e)}")
 
     async def post(self):
-        body = self.request.body
-        response = await self.http_client.fetch(self.target_url, method="POST", headers=self.request.headers, body=body)
-        self.set_status(response.code)
-        for header, value in response.headers.get_all():
-            self.set_header(header, value)
-        self.write(response.body)
+        try:
+            body = self.request.body
+            response = await self.http_client.fetch(self.target_url, method="POST", headers=self.request.headers, body=body)
+            self.set_status(response.code)
+            for header, value in response.headers.get_all():
+                self.set_header(header, value)
+            # Ensure the response is secure
+            self.set_header("Content-Security-Policy", "upgrade-insecure-requests")
+            self.write(response.body)
+        except tornado.httpclient.HTTPClientError as e:
+            self.set_status(e.code)
+            self.write(f"Error: {e.message}")
+        except ConnectionRefusedError:
+            self.set_status(502)
+            self.write("Error: Connection refused")
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Unexpected error: {str(e)}")
 
     async def put(self):
-        body = self.request.body
-        response = await self.http_client.fetch(self.target_url, method="PUT", headers=self.request.headers, body=body)
-        self.set_status(response.code)
-        for header, value in response.headers.get_all():
-            self.set_header(header, value)
-        self.write(response.body)
+        try:
+            body = self.request.body
+            response = await self.http_client.fetch(self.target_url, method="PUT", headers=self.request.headers, body=body)
+            self.set_status(response.code)
+            for header, value in response.headers.get_all():
+                self.set_header(header, value)
+            # Ensure the response is secure
+            self.set_header("Content-Security-Policy", "upgrade-insecure-requests")
+            self.write(response.body)
+        except tornado.httpclient.HTTPClientError as e:
+            self.set_status(e.code)
+            self.write(f"Error: {e.message}")
+        except ConnectionRefusedError:
+            self.set_status(502)
+            self.write("Error: Connection refused")
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Unexpected error: {str(e)}")
 
     async def delete(self):
-        response = await self.http_client.fetch(self.target_url, method="DELETE", headers=self.request.headers)
-        self.set_status(response.code)
-        for header, value in response.headers.get_all():
-            self.set_header(header, value)
-        self.write(response.body)
+        try:
+            response = await self.http_client.fetch(self.target_url, method="DELETE", headers=self.request.headers)
+            self.set_status(response.code)
+            for header, value in response.headers.get_all():
+                self.set_header(header, value)
+            # Ensure the response is secure
+            self.set_header("Content-Security-Policy", "upgrade-insecure-requests")
+            self.write(response.body)
+        except tornado.httpclient.HTTPClientError as e:
+            self.set_status(e.code)
+            self.write(f"Error: {e.message}")
+        except ConnectionRefusedError:
+            self.set_status(502)
+            self.write("Error: Connection refused")
+        except Exception as e:
+            self.set_status(500)
+            self.write(f"Unexpected error: {str(e)}")
