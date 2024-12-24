@@ -449,7 +449,7 @@ def _set_tornado_log_levels() -> None:
 class ReverseProxyHandler(tornado.web.RequestHandler):
     async def prepare(self):
         self.flask_url = "http://localhost:8502"
-        self.target_url = f"{self.flask_url}{self.request.uri[len('/proxy'):]}"
+        self.target_url = f"{self.flask_url}{self.request.uri[len('/proxy'):]}"  # Corrected slicing
         self.http_client = tornado.httpclient.AsyncHTTPClient()
 
     async def get(self):

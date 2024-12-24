@@ -8,30 +8,35 @@ class CustomInstallCommand(install):
     """Customized setuptools install command - installs dependencies and patches Streamlit."""
     
     def run(self):
-        # Proceed with the standard installation process
-        install.run(self)
-        
-        # Run the patch script to modify Streamlit after installation
         try:
+            # Proceed with the standard installation process
+            install.run(self)
+            
+            # Run the patch script to modify Streamlit after installation
             subprocess.check_call([sys.executable, 'patch_streamlit.py'])
         except subprocess.CalledProcessError as e:
             print(f"Error occurred while running the patch script: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
             sys.exit(1)
 
 class CustomDevelopCommand(develop):
     """Customized setuptools install command - installs dependencies and patches Streamlit."""
     
     def run(self):
-        # Proceed with the standard installation process
-        
-        # Run the patch script to modify Streamlit after installation
         try:
+            # Proceed with the standard installation process
+            develop.run(self)
+            
+            # Run the patch script to modify Streamlit after installation
             subprocess.check_call([sys.executable, 'patch_streamlit.py'])
         except subprocess.CalledProcessError as e:
             print(f"Error occurred while running the patch script: {e}")
             sys.exit(1)
-        install.run(self)
-
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            sys.exit(1)
 
 setup(
     name='abr-transcoder',  # Replace with your actual project name
