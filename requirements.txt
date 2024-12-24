@@ -1,4 +1,9 @@
+# Build dependencies
+setuptools
+wheel
 streamlit
+
+# Runtime dependencies
 ffmpeg-python
 numpy
 pydub
@@ -6,7 +11,4 @@ requests
 flask
 flask_cors
 waitress
-setuptools
-wheel
-pandas
 -e .
