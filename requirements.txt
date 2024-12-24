@@ -1,7 +1,7 @@
 # Build dependencies
 setuptools
 wheel
--e ./streamlit
+./streamlit-1.41.1-py2.py3-none-any.whl
 
 # Runtime dependencies
 ffmpeg-python
