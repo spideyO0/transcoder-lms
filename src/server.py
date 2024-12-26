@@ -129,10 +129,6 @@ def start_listening(app: tornado.web.Application) -> None:
 
     if server_address_is_unix_socket():
         start_listening_unix_socket(http_server)
-        
-        app.add_handlers(r".*", [
-        (r"/proxy/.*", ReverseProxyHandler),
-        ])
     else:
         start_listening_tcp_socket(http_server)
 
@@ -353,7 +349,6 @@ class Server:
                 ComponentRequestHandler,
                 {"registry": self._runtime.component_registry},
             ),
-            (r"/proxy/.*", ReverseProxyHandler),
         ]
 
         if config.get_option("server.scriptHealthCheckEnabled"):
@@ -465,9 +460,39 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
         self.request.headers.pop("If-None-Match", None)
         self.request.headers.pop("If-Modified-Since", None)
 
+        # Dynamically determine the forward proxy URL
+        self.forward_proxy_url = self._determine_forward_proxy_url()
+
+    def _determine_forward_proxy_url(self) -> str | None:
+        # Example logic to determine the forward proxy URL based on the request
+        host = self.request.headers.get("Host", "")
+        if "streamlit.app" in host:
+            return "http://forward.proxy.server:8080"
+        return None
+
+    async def fetch_with_forward_proxy(self, url, method, headers, body=None):
+        if self.forward_proxy_url:
+            proxy_host, proxy_port = self.forward_proxy_url.split(":")
+            request = tornado.httpclient.HTTPRequest(
+                url=url,
+                method=method,
+                headers=headers,
+                body=body,
+                proxy_host=proxy_host,
+                proxy_port=int(proxy_port),
+            )
+        else:
+            request = tornado.httpclient.HTTPRequest(
+                url=url,
+                method=method,
+                headers=headers,
+                body=body,
+            )
+        return await self.http_client.fetch(request)
+
     async def get(self):
         try:
-            response = await self.http_client.fetch(self.target_url, method="GET", headers=self.request.headers)
+            response = await self.fetch_with_forward_proxy(self.target_url, "GET", self.request.headers)
             self.set_status(response.code)
             for header, value in response.headers.get_all():
                 self.set_header(header, value)
@@ -493,7 +518,7 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
     async def post(self):
         try:
             body = self.request.body
-            response = await self.http_client.fetch(self.target_url, method="POST", headers=self.request.headers, body=body)
+            response = await self.fetch_with_forward_proxy(self.target_url, "POST", self.request.headers, body)
             self.set_status(response.code)
             for header, value in response.headers.get_all():
                 self.set_header(header, value)
@@ -515,7 +540,7 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
     async def put(self):
         try:
             body = self.request.body
-            response = await self.http_client.fetch(self.target_url, method="PUT", headers=self.request.headers, body=body)
+            response = await self.fetch_with_forward_proxy(self.target_url, "PUT", self.request.headers, body)
             self.set_status(response.code)
             for header, value in response.headers.get_all():
                 self.set_header(header, value)
@@ -536,7 +561,7 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
 
     async def delete(self):
         try:
-            response = await self.http_client.fetch(self.target_url, method="DELETE", headers=self.request.headers)
+            response = await self.fetch_with_forward_proxy(self.target_url, "DELETE", self.request.headers)
             self.set_status(response.code)
             for header, value in response.headers.get_all():
                 self.set_header(header, value)
