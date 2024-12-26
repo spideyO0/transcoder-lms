@@ -87,8 +87,9 @@ class StaticFileHandler(tornado.web.StaticFileHandler):
 
     def write_error(self, status_code: int, **kwargs) -> None:
         if status_code == 404:
-            index_file = os.path.join(file_util.get_static_dir(), "index.html")
-            self.render(index_file)
+            # Serve a custom 404 page or fallback to a default message
+            self.set_status(404)
+            self.write("404: File not found")
         else:
             super().write_error(status_code, **kwargs)
 
@@ -288,3 +289,10 @@ class MessageCacheHandler(tornado.web.RequestHandler):
         """/OPTIONS handler for preflight CORS checks."""
         self.set_status(204)
         self.finish()
+
+
+def make_app():
+    return tornado.web.Application([
+        (r"/hls/(.*)", StaticFileHandler, {"path": "./output"}),
+        (r"/static/(.*)", StaticFileHandler, {"path": "./static"}),
+    ])
