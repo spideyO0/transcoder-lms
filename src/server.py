@@ -97,8 +97,7 @@ SCRIPT_HEALTH_CHECK_ENDPOINT: Final = (
     r"(?:script-health-check|_stcore/script-health-check)"
 )
 
-# Define the OUTPUT_FOLDER path relative to the root directory of the project
-OUTPUT_FOLDER = os.path.abspath(os.path.join(__file__, "../../../../../../../../src/output"))
+
 class RetriesExceeded(Exception):
     pass
 
@@ -133,16 +132,6 @@ def start_listening(app: tornado.web.Application) -> None:
         start_listening_unix_socket(http_server)
     else:
         start_listening_tcp_socket(http_server)
-
-    # Add port forwarding to the proxy route
-    app.add_handlers(r".*", [
-        (r"/proxy/.*", ReverseProxyHandler),
-    ])
-
-    # Add handler for streaming video files
-    app.add_handlers(r".*", [
-        (r"/stream/(.*)", tornado.web.StaticFileHandler, {"path": OUTPUT_FOLDER}),
-    ])
 
 
 def _get_ssl_options(cert_file: str | None, key_file: str | None) -> SSLContext | None:
@@ -240,6 +229,19 @@ def start_listening_tcp_socket(http_server: HTTPServer) -> None:
         )
 
 
+# ... (previous imports and code)
+
+class HLSServerHandler(tornado.web.StaticFileHandler):
+    """Custom handler to serve HLS files from the output directory."""
+
+    def initialize(self, path):
+        # Set the root directory for serving files
+        self.root = os.path.join(os.getcwd(), "output")
+
+    def set_extra_headers(self, path):
+        # Disable caching for HLS files
+        self.set_header("Cache-Control", "no-cache")
+
 class Server:
     def __init__(self, main_script_path: str, is_hello: bool):
         """Create the server. It won't be started yet."""
@@ -278,9 +280,6 @@ class Server:
         mimetypes.add_type("text/css", ".css")
         mimetypes.add_type("image/webp", ".webp")
         mimetypes.add_type("application/vnd.apple.mpegurl", ".m3u8")
-        mimetypes.add_type("video/mp4", ".mp4")
-        mimetypes.add_type("video/x-matroska", ".mkv")
-        mimetypes.add_type("video/x-msvideo", ".avi")
 
     def __repr__(self) -> str:
         return util.repr_(self)
@@ -359,6 +358,12 @@ class Server:
                 make_url_path_regex(base, "component/(.*)"),
                 ComponentRequestHandler,
                 {"registry": self._runtime.component_registry},
+            ),
+            # Add the custom HLS server handler
+            (
+                make_url_path_regex(base, r"hls/(.*)"),
+                HLSServerHandler,
+                {"path": ""},  # Pass an empty path since we set the root in initialize
             ),
         ]
 
