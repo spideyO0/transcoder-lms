@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import os
+import mimetypes
 from typing import Final, Sequence
 
 import tornado.web
@@ -25,6 +26,9 @@ from streamlit.runtime.runtime_util import serialize_forward_msg
 from streamlit.web.server.server_util import emit_endpoint_deprecation_notice
 
 _LOGGER: Final = get_logger(__name__)
+
+# Add the correct MIME type for .m3u8 files
+mimetypes.add_type("application/vnd.apple.mpegurl", ".m3u8")
 
 
 def allow_cross_origin_requests() -> bool:
@@ -38,6 +42,23 @@ def allow_cross_origin_requests() -> bool:
     return not config.get_option("server.enableCORS") or config.get_option(
         "global.developmentMode"
     )
+
+
+class HLSServerHandler(tornado.web.StaticFileHandler):
+    def initialize(self, path):
+        # Set the root directory for serving HLS files
+        self.root = os.path.join(os.getcwd(), "output")
+
+    def set_default_headers(self):
+        # Set the correct Content-Type for .m3u8 files
+        if self.request.uri.endswith(".m3u8"):
+            self.set_header("Content-Type", "application/vnd.apple.mpegurl")
+        else:
+            super().set_default_headers()
+
+    def set_extra_headers(self, path):
+        # Disable caching for HLS files
+        self.set_header("Cache-Control", "no-cache")
 
 
 class StaticFileHandler(tornado.web.StaticFileHandler):
@@ -293,6 +314,6 @@ class MessageCacheHandler(tornado.web.RequestHandler):
 
 def make_app():
     return tornado.web.Application([
-        (r"/hls/(.*)", StaticFileHandler, {"path": "./output"}),
+        (r"/hls/(.*)", HLSServerHandler, {"path": "./output"}),
         (r"/static/(.*)", StaticFileHandler, {"path": "./static"}),
     ])
