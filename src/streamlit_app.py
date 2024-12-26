@@ -282,8 +282,27 @@ def configure_tornado():
 def get_port():
     port = st.config.get_option("server.port")
     if port is None:
-        port = 0000  # Default Streamlit port
+        port = 8501  # Default Streamlit port
     return port
+
+# Function to get the Flask server port
+def get_flask_port():
+    return 8502  # Default Flask port
+
+# Function to check if the Flask server is running on its port
+def check_flask_server_port():
+    flask_url = f"http://localhost:{get_flask_port()}/check_flask_access"
+    try:
+        response = requests.get(flask_url)
+        if response.status_code == 200:
+            return True
+        else:
+            return False
+    except requests.ConnectionError:
+        return False
+    except Exception as e:
+        st.error(f"Unexpected error checking Flask server: {e}")
+        return False
 
 def main():
     try:
@@ -293,6 +312,13 @@ def main():
         # Add a button to display the port number
         if st.button("Show Port Number"):
             st.write(f"Streamlit is running on port: {get_port()}")
+
+        # Add a button to check if the Flask server is running on its port
+        if st.button("Check Flask Server Port"):
+            if check_flask_server_port():
+                st.success(f"Flask server is running on port: {get_flask_port()}")
+            else:
+                st.error(f"Flask server is not running on port: {get_flask_port()}")
 
         # Start Flask app in a separate thread
         if 'flask_thread' not in st.session_state:
