@@ -305,6 +305,16 @@ def check_flask_server_port():
         st.error(f"Unexpected error checking Flask server: {e}")
         return False
 
+# Function to generate streaming link directly from Streamlit
+def generate_streaming_link(file_path):
+    try:
+        base_url = get_base_url()
+        encoded_path = urllib.parse.quote(file_path)
+        return f"{base_url}/stream/{encoded_path}"
+    except Exception as e:
+        st.error(f"Unexpected error generating streaming link: {e}")
+        return ""
+
 def main():
     try:
 
@@ -324,6 +334,18 @@ def main():
         # Add a button to check and display the Streamlit version
         if st.button("Show Streamlit Version"):
             st.write(f"Streamlit version: {streamlit.__version__}")
+
+        # Add a button to generate the streaming link directly from Streamlit
+        if st.button("Generate Streaming Link"):
+            transcoded_files = [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith("_master.m3u8")]
+            if transcoded_files:
+                selected_file = st.selectbox("Select a file to generate link", transcoded_files)
+                if selected_file:
+                    stream_url = generate_streaming_link(selected_file)
+                    st.write(f"Streaming Link: [Stream Video]({stream_url})")
+                    st.markdown(f"Use this URL to play the video in any HLS-compatible player:\n\n`{stream_url}`")
+            else:
+                st.info("No transcoded files available.")
 
         # Start Flask app in a separate thread
         if 'flask_thread' not in st.session_state:
