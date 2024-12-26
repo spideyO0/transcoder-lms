@@ -23,6 +23,7 @@ from streamlit import config, file_util
 from streamlit.logger import get_logger
 from streamlit.runtime.runtime_util import serialize_forward_msg
 from streamlit.web.server.server_util import emit_endpoint_deprecation_notice
+from streamlit.web.server.reverse_proxy_handler import ReverseProxyHandler
 
 _LOGGER: Final = get_logger(__name__)
 
@@ -291,7 +292,6 @@ class MessageCacheHandler(tornado.web.RequestHandler):
 
 
 def make_app():
-    from streamlit.web.server.server import ReverseProxyHandler
     return tornado.web.Application([
         (r"/proxy/.*", ReverseProxyHandler),
     ])
