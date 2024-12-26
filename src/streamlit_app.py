@@ -21,6 +21,7 @@ import tornado.httputil
 from streamlit.web.server.server import Server
 from streamlit.runtime import get_instance
 from streamlit.runtime.scriptrunner import get_script_run_ctx
+import streamlit  # Add this import statement
 
 
 # Define folders for uploads and output
@@ -319,6 +320,10 @@ def main():
                 st.success(f"Flask server is running on port: {get_flask_port()}")
             else:
                 st.error(f"Flask server is not running on port: {get_flask_port()}")
+
+        # Add a button to check and display the Streamlit version
+        if st.button("Show Streamlit Version"):
+            st.write(f"Streamlit version: {streamlit.__version__}")
 
         # Start Flask app in a separate thread
         if 'flask_thread' not in st.session_state:
