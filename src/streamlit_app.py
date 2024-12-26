@@ -282,7 +282,7 @@ def configure_tornado():
 def get_port():
     port = st.config.get_option("server.port")
     if port is None:
-        port = 8501  # Default Streamlit port
+        port = 0000  # Default Streamlit port
     return port
 
 def main():
