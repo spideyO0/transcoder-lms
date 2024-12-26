@@ -6,6 +6,7 @@ from pathlib import Path
 from streamlit.components.v1 import html
 import logging
 import requests
+import sys
 
 # Define folders for uploads and output
 UPLOAD_FOLDER = './uploads'
@@ -18,9 +19,7 @@ def check_ffmpeg_installed():
     try:
         subprocess.run(["ffmpeg", "-version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return True
-    except subprocess.CalledProcessError:
-        return False
-    except FileNotFoundError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return False
 
 # Function to install ffmpeg from binary
@@ -36,10 +35,8 @@ def install_ffmpeg():
             ffmpeg_bin = os.path.join(ffmpeg_dir, "ffmpeg")
             os.environ["PATH"] += os.pathsep + os.path.abspath(ffmpeg_dir)
         elif os_info == "darwin":
-            # Download and install ffmpeg for macOS
-            subprocess.run(["curl", "-L", "https://evermeet.cx/ffmpeg/ffmpeg-5.1.1.7z", "-o", "ffmpeg.7z"], check=True)
-            subprocess.run(["7z", "x", "ffmpeg.7z"], check=True)
-            os.environ["PATH"] += os.pathsep + os.path.abspath(".")
+            # Download and install ffmpeg for macOS using Homebrew
+            subprocess.run(["brew", "install", "ffmpeg"], check=True)
         elif os_info == "windows":
             # Download and install ffmpeg for Windows
             ffmpeg_url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
@@ -49,6 +46,7 @@ def install_ffmpeg():
             os.environ["PATH"] += os.pathsep + ffmpeg_bin
         else:
             raise OSError("Unsupported operating system")
+        st.success("ffmpeg installed successfully.")
     except Exception as e:
         st.error(f"Error installing ffmpeg: {e}")
         sys.exit(1)
@@ -58,7 +56,6 @@ def transcode_to_hls(input_source, base_name):
     if not check_ffmpeg_installed():
         st.info("ffmpeg is not installed. Installing ffmpeg...")
         install_ffmpeg()
-        st.success("ffmpeg installed successfully.")
 
     qualities = {
         "240p": {"resolution": "426x240", "bitrate": "300k"},
@@ -107,8 +104,8 @@ def main():
 
     # Check ffmpeg installation
     if not check_ffmpeg_installed():
-        st.warning("ffmpeg is not installed. Please install ffmpeg.")
-        return
+        st.info("ffmpeg is not installed. Installing ffmpeg...")
+        install_ffmpeg()
 
     # Upload video file
     uploaded_file = st.file_uploader("Upload a video file", type=["mp4", "mkv", "avi"])
