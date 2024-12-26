@@ -278,10 +278,21 @@ def configure_tornado():
         st.error(f"Unexpected error during Tornado configuration: {e}")
         sys.exit(1)
 
+# Function to get the port number
+def get_port():
+    port = st.config.get_option("server.port")
+    if port is None:
+        port = 8501  # Default Streamlit port
+    return port
+
 def main():
     try:
 
         st.title("Streamlit Media Server")
+
+        # Add a button to display the port number
+        if st.button("Show Port Number"):
+            st.write(f"Streamlit is running on port: {get_port()}")
 
         # Start Flask app in a separate thread
         if 'flask_thread' not in st.session_state:
