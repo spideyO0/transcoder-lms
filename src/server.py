@@ -467,7 +467,15 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
         # Example logic to determine the forward proxy URL based on the request
         host = self.request.headers.get("Host", "")
         if "streamlit.app" in host:
-            return "http://forward.proxy.server:8080"
+            # Attempt to infer the forward proxy URL from the request headers
+            via = self.request.headers.get("Via", "")
+            if via:
+                # Extract the proxy URL from the Via header
+                proxy_url = via.split(",")[-1].strip()
+                if proxy_url:
+                    return proxy_url
+            # Fallback to a default proxy URL if no Via header is present
+            return "http://default.proxy.server:8080"
         return None
 
     async def fetch_with_forward_proxy(self, url, method, headers, body=None):
@@ -480,6 +488,8 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
                 body=body,
                 proxy_host=proxy_host,
                 proxy_port=int(proxy_port),
+                follow_redirects=True,
+                allow_nonstandard_methods=True,
             )
         else:
             request = tornado.httpclient.HTTPRequest(
@@ -487,6 +497,8 @@ class ReverseProxyHandler(tornado.web.RequestHandler):
                 method=method,
                 headers=headers,
                 body=body,
+                follow_redirects=True,
+                allow_nonstandard_methods=True,
             )
         return await self.http_client.fetch(request)
 
