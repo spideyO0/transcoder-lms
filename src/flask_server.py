@@ -17,6 +17,10 @@ logging.basicConfig(level=logging.INFO)
 
 DOMAIN = os.getenv('DOMAIN', 'http://localhost:5000')
 
+@app.route('/')
+def index():
+    return "Hello, World!"
+
 @app.route('/transcode', methods=['POST'])
 def transcode():
     file = request.files['file']
